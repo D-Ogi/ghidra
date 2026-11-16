@@ -472,6 +472,24 @@ macro extract_bit(bit, result) {
 	dsync();
 }
 
+# CONST.S - Load Constant Single (RRR), Cadence ISA Summary section 8.3.70.
+# Indices 4..15 are reserved. Model normal register operation, like other FP instructions.
+:const.s fr, "0" is op2 = 0xf & op1 = 0xa & fr & op_s = 0 & op_t = 3 & op0 = 0 {
+    fr = 0x00000000;
+}
+
+:const.s fr, "1" is op2 = 0xf & op1 = 0xa & fr & op_s = 1 & op_t = 3 & op0 = 0 {
+    fr = 0x3f800000;
+}
+
+:const.s fr, "2" is op2 = 0xf & op1 = 0xa & fr & op_s = 2 & op_t = 3 & op0 = 0 {
+    fr = 0x40000000;
+}
+
+:const.s fr, "3" is op2 = 0xf & op1 = 0xa & fr & op_s = 3 & op_t = 3 & op0 = 0 {
+    fr = 0x3f000000;
+}
+
 # ENTRY - Subroutine Entry (BRI12), pg. 340.
 :entry as, bri12_i12_sh3 is bri12_i12_sh3 & as & bri8_m = 0b00 & bri8_n = 0b11 & op0 = 0b0110 {
 	local callSP = a1;
