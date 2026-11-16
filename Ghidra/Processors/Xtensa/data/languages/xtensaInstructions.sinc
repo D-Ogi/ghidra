@@ -687,6 +687,88 @@ macro extract_bit(bit, result) {
 	fr = fr f+ (fs f* ft);
 }
 
+# Opaque models for helper instructions whose documented result is an internal
+# sequence-format adjustment that p-code cannot express.
+define pcodeop mksadj_s;
+define pcodeop mkdadj_s;
+define pcodeop nexp01_s;
+
+# FP divide/square-root helper instructions (Floating-Point Coprocessor Option).
+# These are the sequence helpers for DIV.S, SQRT.S, RECIP.S and RSQRT.S. The p-code
+# models the mathematical intent; the internal exponent adjustments and the
+# table-lookup seeds that the hardware uses are not reproduced bit-exactly.
+# Source: Cadence Xtensa ISA Summary (RI-2021.8); section numbers in the comments.
+
+# DIV0.S - Divide Begin Single (RRR), section 8.3.88.
+:div0.s fr, fs is op2 = 0b1111 & op1 = 0b1010 & fr & fs & at = 0b0111 & op0 = 0 {
+	# Approximate reciprocal seed; the instruction uses a table lookup.
+	local one:4 = 1;
+	fr = int2float(one) f/ fs;
+}
+
+# DIVN.S - Divide Final Single (RRR), section 8.3.90.
+:divn.s fr, fs, ft is op2 = 0b0111 & op1 = 0b1010 & fr & fs & ft & op0 = 0 {
+	# fr = fr + (fs * ft) with internal exponent adjustments, no intermediate
+	# rounding and special flag rules; modeled here as a plain multiply-add.
+	fr = fr f+ (fs f* ft);
+}
+
+# SQRT0.S - Square Root Begin Single (RRR), section 8.3.302.
+:sqrt0.s fr, fs is op2 = 0b1111 & op1 = 0b1010 & fr & fs & at = 0b1001 & op0 = 0 {
+	# Approximate reciprocal square-root seed; the instruction uses a table lookup.
+	local one:4 = 1;
+	fr = int2float(one) f/ sqrt(fs);
+}
+
+# RECIP0.S - Reciprocal Begin Single (RRR), section 8.3.247.
+:recip0.s fr, fs is op2 = 0b1111 & op1 = 0b1010 & fr & fs & at = 0b1000 & op0 = 0 {
+	local one:4 = 1;
+	fr = int2float(one) f/ fs;
+}
+
+# RSQRT0.S - Reciprocal Sqrt Begin Single (RRR), section 8.3.275.
+:rsqrt0.s fr, fs is op2 = 0b1111 & op1 = 0b1010 & fr & fs & at = 0b1010 & op0 = 0 {
+	local one:4 = 1;
+	fr = int2float(one) f/ sqrt(fs);
+}
+
+# ADDEXP.S - Add Exponent Single (RRR), section 8.3.9.
+:addexp.s fr, fs is op2 = 0b1111 & op1 = 0b1010 & fr & fs & at = 0b1110 & op0 = 0 {
+	fr[31,1] = fr[31,1] ^ fs[31,1];
+	fr[23,8] = fr[23,8] + fs[23,8] - 0x7f;
+}
+
+# ADDEXPM.S - Add Exponent from Mantissa Single (RRR), section 8.3.11.
+:addexpm.s fr, fs is op2 = 0b1111 & op1 = 0b1010 & fr & fs & at = 0b1111 & op0 = 0 {
+	fr[31,1] = fr[31,1] ^ fs[22,1];
+	fr[23,8] = fr[23,8] + fs[14,8] - 0x7f;
+}
+
+# MKSADJ.S - Make Square Root Adjust Single (RRR), section 8.3.170.
+:mksadj.s fr, fs is op2 = 0b1111 & op1 = 0b1010 & fr & fs & at = 0b1100 & op0 = 0 {
+	# Internal adjustment-amount construction (square_root_adjust); opaque call.
+	fr = mksadj_s(fs);
+}
+
+# MKDADJ.S - Make Divide Adjust Single (RRR), section 8.3.168.
+:mkdadj.s fr, fs is op2 = 0b1111 & op1 = 0b1010 & fr & fs & at = 0b1101 & op0 = 0 {
+	# Internal adjustment-amount construction (divide_adjust); opaque call.
+	fr = mkdadj_s(fs, fr);
+}
+
+# NEXP01.S - Narrow Exponent Range Single (RRR), section 8.3.225.
+:nexp01.s fr, fs is op2 = 0b1111 & op1 = 0b1010 & fr & fs & at = 0b1011 & op0 = 0 {
+	# Exponent-range narrowing with a table-dependent power of 4; opaque call.
+	fr = nexp01_s(fs);
+}
+
+# MADDN.S - Multiply and Add Single Round Nearest (RRR), section 8.3.161.
+:maddn.s fr, fs, ft is op2 = 0b0110 & op1 = 0b1010 & fr & fs & ft & op0 = 0 {
+	# fr = fr + (fs * ft) with no intermediate rounding and round-to-nearest;
+	# modeled here as a plain multiply-add.
+	fr = fr f+ (fs f* ft);
+}
+
 # MAX - Maximum Value (RRR), pg. 407.
 :max ar, as, at is op2 = 0b0101 & op1 = 0b0011 & ar & as & at & op0 = 0 {
 	test:1 = as s< at;
